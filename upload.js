@@ -1,8 +1,8 @@
 // 1. Import necessary modules
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 const xlsx = require('xlsx');
 const csv = require('csv-parser');
 const expressLayouts = require('express-ejs-layouts');
@@ -51,7 +51,7 @@ app.get('/', (req, res) => {
     // Clear session data after displaying it
     req.session.data = null;
     req.session.error = null;
-    req.session.dbMessage = null; 
+    req.session.dbMessage = null;
 
     res.render('index', { data, error, dbMessage }); // <-- Pass DB message to the view
 });
@@ -66,24 +66,53 @@ app.post('/upload', upload.single('file'), (req, res) => {
 
     const filePath = req.file.path;
     const fileExtension = path.extname(req.file.originalname).toLowerCase();
-    
+
     // --- This function processes the parsed JSON data ---
     const processAndUpload = async (jsonData) => {
         if (!jsonData || jsonData.length === 0) {
-             req.session.error = 'The file is empty or could not be read.';
-             return res.redirect('/');
+            req.session.error = 'The file is empty or could not be read.';
+            return res.redirect('/');
         }
-        
+
         // IMPORTANT: Specify your target table name here.
         const tableName = 'invMasterAux'; // <-- Replace with your actual table name
-        
+
         // Call the database service
-        const dbResult = await dbService.truncateAndInsert(tableName, jsonData);
+        const dbResult = dbService.truncateAndInsert(tableName, jsonData);
 
         // Store the result in the session to be displayed after redirect
+        // if (dbResult.success) {
+        //     req.session.dbMessage = { type: 'success', text: dbResult.message };            
+        //     req.session.data = jsonData; // Optionally, still show the JSON on the page
+        // } else {
+        //     req.session.dbMessage = { type: 'danger', text: dbResult.message };
+        // }
+
         if (dbResult.success) {
             req.session.dbMessage = { type: 'success', text: dbResult.message };
-            req.session.data = jsonData; // Optionally, still show the JSON on the page
+            req.session.data = jsonData; // Keep this to show data in page
+
+            // Create 'data' directory if it doesn't exist
+            const dataDir = path.join(__dirname, 'data');
+            if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+            }
+
+            // Generate filename with current date and time
+            // const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const timestamp = new Date().toISOString().replace('T', '_').slice(0,16).replace(/:/g, '-');
+            const fileName = `data-${timestamp}.json`;
+            const filePath = path.join(dataDir, fileName);
+
+            // Write JSON data to file
+            fs.writeFile(filePath, JSON.stringify(jsonData, null, 2), 'utf8', (err) => {
+                if (err) {
+                    console.error('Error saving JSON file:', err);
+                } else {
+                    console.log(`✅ JSON data saved to ${filePath}`);
+                }
+            });
+
         } else {
             req.session.dbMessage = { type: 'danger', text: dbResult.message };
         }
@@ -126,7 +155,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
     }
 });
 
-app.get('/insert', (req, res)=>{
+app.get('/insert', (req, res) => {
     try {
         let data = req.session.data; console.log(data);
     } catch (error) {
