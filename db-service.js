@@ -32,7 +32,7 @@ const pool = mysql.createPool(dbConfig);
  * @param {Array<Object>} data - An array of objects where each object represents a row.
  * @returns {Object} - An object indicating success or failure.
  */
-async function truncateAndInsert(tableName, data) {
+async function truncateAndInsert_(tableName, data) {
     // Check if there is any data to insert
     if (!data || data.length === 0) {
         return { success: false, message: 'No data provided to insert.' };
@@ -91,6 +91,40 @@ async function truncateAndInsert(tableName, data) {
         }
     }
 }
+
+async function truncateAndInsert(tableName, data) {
+  if (!data?.length) {
+    return { success: false, message: 'No data provided to insert.' };
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Step 1: Truncate the table
+    await connection.query(`TRUNCATE TABLE ??`, [tableName]);
+
+    // Step 2: Build dynamic INSERT (exclude created_at)
+    const columns = Object.keys(data[0]).filter(c => c !== 'created_at');
+    const columnsSql = columns.map(c => `\`${c}\``).join(', ');
+    const sql = `INSERT INTO ?? (${columnsSql}) VALUES ?`;
+    const values = data.map(row => columns.map(c => row[c]));
+
+    await connection.query(sql, [tableName, values]);
+    await connection.commit();
+
+    return { success: true, message: `Inserted ${data.length} rows into ${tableName}.` };
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    return { success: false, message: 'Failed to upload data.', error: error.message };
+
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
 
 // 4. Export the function so it can be used in server.js
 module.exports = {
