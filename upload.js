@@ -126,7 +126,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
                 .pipe(csv())
                 .on('data', (row) => jsonData.push(row))
                 .on('end', () => {
-                    fs.unlinkSync(filePath); // Delete temp file
+                    // fs.unlinkSync(filePath); // Delete temp file
                     processAndUpload(jsonData); // Process the data
                 })
                 .on('error', (err) => {
@@ -140,7 +140,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = xlsx.utils.sheet_to_json(worksheet);
-            fs.unlinkSync(filePath); // Delete temp file
+            // fs.unlinkSync(filePath); // Delete temp file
             processAndUpload(jsonData); // Process the data
 
         } else {
